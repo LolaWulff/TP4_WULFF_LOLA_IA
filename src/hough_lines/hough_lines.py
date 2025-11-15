@@ -1,5 +1,6 @@
-from typing import Tuple
+from typing import Tuple, Optional
 import numpy as np
+import math
 
 def hough_space(edge_bin: np.ndarray,
                 theta_res_deg: float = 1.0,
@@ -44,3 +45,53 @@ def find_peaks(acc: np.ndarray, k: int = 5, min_votes: int = 50):
         peaks.append((idx[0], idx[1], votes))
         acc_copy[idx] = 0
     return peaks
+
+def line_endpoints_from_rho_theta(rho: float, theta_rad: float, width: int, height: int
+                                  ) -> Optional[Tuple[Tuple[int,int], Tuple[int,int]]]:
+    """
+    A partir de (rho, theta) devuelve dos puntos (x1,y1)-(x2,y2) dentro de la imagen
+    para poder dibujar la recta. Intersecta la recta con los bordes del cuadro [0,W) x [0,H).
+    Retorna None si no encuentra dos intersecciones válidas.
+    """
+
+    def intersect_with_border():
+        pts = []
+
+        # Bordes: x=0, x=W-1, y=0, y=H-1
+        cos_t, sin_t = math.cos(theta_rad), math.sin(theta_rad)
+
+        # Evitar divisiones por cero con tolerancia
+        eps = 1e-9
+
+        # Intersección con x = 0 => rho = y*sin + 0*cos
+        if abs(sin_t) > eps:
+            y = rho / sin_t
+            if 0 <= y < height:
+                pts.append((0, int(round(y))))
+
+        # Intersección con x = W-1
+        if abs(sin_t) > eps:
+            y = (rho - (width - 1) * cos_t) / sin_t
+            if 0 <= y < height:
+                pts.append((width - 1, int(round(y))))
+
+        # Intersección con y = 0 => rho = 0*sin + x*cos
+        if abs(cos_t) > eps:
+            x = rho / cos_t
+            if 0 <= x < width:
+                pts.append((int(round(x)), 0))
+
+        # Intersección con y = H-1
+        if abs(cos_t) > eps:
+            x = (rho - (height - 1) * sin_t) / cos_t
+            if 0 <= x < width:
+                pts.append((int(round(x)), height - 1))
+
+        # Quitar duplicados y quedarnos con dos
+        uniq = []
+        for p in pts:
+            if p not in uniq:
+                uniq.append(p)
+        return uniq[:2] if len(uniq) >= 2 else None
+
+    return intersect_with_border()
